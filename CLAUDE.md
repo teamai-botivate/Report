@@ -162,6 +162,17 @@ See `.env.example`. Key ones:
 
 ## Known issues / assumptions
 
+- **`calendar_dates` was found completely empty on the live Neon DB (2026-09-19), causing every relative-
+  date query ("this month vs last month") to silently return $0/NULL** despite real underlying data
+  existing (e.g. payroll had real September/August 2026 rows). Root cause: an earlier seed run's
+  `seed_calendar()` step never completed against this database, and `app/core/bootstrap.py`'s
+  `_database_is_empty()` only checks the `customers` table to decide whether to auto-seed, so a
+  partial/interrupted seed with a populated `customers` table but an empty `calendar_dates` table is never
+  detected or self-healed on subsequent boots. Fixed by manually re-running `seed_calendar()` against the
+  live DB (backfilled 1097 days, 2023-09-19..2026-09-19) — verified the same query that returned $0 now
+  returns the real ₹15,520,077.50 for the current month. Left `_database_is_empty()`'s single-table check
+  as-is (by user decision) rather than adding per-table health checks — if this recurs, that's the place to
+  revisit.
 - **Chart/KPI/table rendering is now AI image generation, not deterministic (2026-09-19, explicit user
   decision, confirmed three times with the risk explained each time)**: every KPI, chart, and table can
   render as a `gpt-image-2`-generated image (`app/ai/chart_image_client.py`) depicting the real query data,
