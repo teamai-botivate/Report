@@ -28,10 +28,9 @@ export interface KPISpec {
   delta_label?: string | null;
   trend?: Trend | null;
   source_node_id?: string | null;
-  // 2026-09-19 explicit user override: when present, an AI-generated image
-  // depicting this KPI (gpt-image-2) — render it instead of the numeric
-  // display. Absent/null means image generation is disabled or failed; fall
-  // back to rendering `value`/`format` as before.
+  // 2026-09-19: per-item image field, superseded the same day by the
+  // report-level ReportSpec.report_image_url below. No longer populated by
+  // the backend; kept for backward compatibility.
   image_url?: string | null;
 }
 
@@ -51,10 +50,9 @@ export interface ChartSpec {
   data: Record<string, any>[];
   source_node_id?: string | null;
   color_theme?: string | null;
-  // 2026-09-19 explicit user override: when present, an AI-generated image
-  // depicting this chart's real data (gpt-image-2) — render it instead of
-  // ChartRenderer. Absent/null means image generation is disabled/failed;
-  // fall back to ChartRenderer as before.
+  // 2026-09-19: per-item image field, superseded the same day by the
+  // report-level ReportSpec.report_image_url below. No longer populated by
+  // the backend; kept for backward compatibility.
   image_url?: string | null;
 }
 
@@ -78,10 +76,9 @@ export interface TableSpec {
   columns: TableColumnSpec[];
   rows: Record<string, any>[];
   source_node_id?: string | null;
-  // 2026-09-19 explicit user override: when present, an AI-generated image
-  // depicting this table's real rows (gpt-image-2) — render it instead of
-  // DataTableView. Absent/null means image generation is disabled/failed;
-  // fall back to DataTableView as before.
+  // 2026-09-19: per-item image field, superseded the same day by the
+  // report-level ReportSpec.report_image_url below. No longer populated by
+  // the backend; kept for backward compatibility.
   image_url?: string | null;
 }
 
@@ -113,6 +110,13 @@ export interface ReportSpec {
   insights: InsightSpec[];
   layout: any[];
   banner_image_url?: string | null;
+  // 2026-09-19 single-image revision: ONE AI-generated image depicting the
+  // ENTIRE report (title + all KPIs + all charts + all tables + all
+  // insights) as one cohesive dashboard picture. When present, the frontend
+  // renders ONLY this image for the whole report body. When absent (image
+  // generation disabled or failed), the frontend falls back to rendering the
+  // full multi-section ECharts/DOM layout — never a mix of the two.
+  report_image_url?: string | null;
   query_trace: QueryTraceSpec[];
   generated_by: "ai" | "heuristic";
 }

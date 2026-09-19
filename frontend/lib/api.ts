@@ -49,15 +49,19 @@ export async function getSchema(): Promise<SchemaResponse> {
 // `await postChat(message, conversationId)` and get a Promise<ChatResponse> —
 // polling is an internal implementation detail.
 //
-// 2026-09-19: a report turn now also generates one gpt-image-2 image per
-// KPI/chart/table (app/ai/chart_image_client.py), run with bounded
-// concurrency (max 4 at a time) but each call can take ~10-20s. A report
-// with, say, 8-10 sections can still take several batches to finish on top
-// of the existing OpenAI text calls, so the overall poll budget was raised
-// from ~3 minutes to ~6 minutes to avoid spuriously timing out a
-// slower-but-still-succeeding image-heavy report.
+// 2026-09-19: a report turn generates ONE gpt-image-2 image for the whole
+// report (app/ai/chart_image_client.py's generate_full_report_image),
+// replacing an earlier same-day approach that generated one image per
+// KPI/chart/table (which needed several bounded-concurrency batches at
+// ~10-20s each and had pushed this budget up to ~6 minutes). A single
+// prompt-writing call plus a single image-generation call is still slower
+// than plain text but no longer scales with the number of report sections,
+// so the budget is brought back down — kept a bit above the original
+// ~3-minute pre-image budget rather than exactly at it, since one big
+// whole-report prompt is more data (and likely somewhat slower to write and
+// render) than the plain-text-only case that budget was originally sized for.
 const CHAT_POLL_INTERVAL_MS = 1500;
-const CHAT_POLL_TIMEOUT_MS = 360000; // ~6 minutes overall budget
+const CHAT_POLL_TIMEOUT_MS = 240000; // ~4 minutes overall budget
 
 export class ChatTimeoutError extends Error {
   constructor() {

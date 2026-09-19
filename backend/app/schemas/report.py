@@ -25,10 +25,10 @@ class KPISpec(BaseModel):
     delta_label: str | None = None
     trend: Literal["up", "down", "flat"] | None = None
     source_node_id: str | None = None
-    # 2026-09-19 explicit user override (see app/ai/chart_image_client.py):
-    # AI-generated depiction of this KPI card, replacing DOM/ECharts rendering
-    # when present. None means image generation is disabled/failed — the
-    # frontend falls back to rendering `value`/`format` directly as before.
+    # 2026-09-19: per-item image field, SUPERSEDED the same day by the
+    # report-level `ReportSpec.report_image_url` (see
+    # app/ai/chart_image_client.py). Kept in the schema for backward
+    # compatibility; no longer populated by the backend.
     image_url: str | None = None
 
 
@@ -48,9 +48,10 @@ class ChartSpec(BaseModel):
     data: list[dict[str, Any]] = Field(default_factory=list)
     source_node_id: str | None = None
     color_theme: str | None = None
-    # 2026-09-19 explicit user override: AI-generated depiction of this chart's
-    # real `data`, replacing ECharts rendering when present. None means image
-    # generation is disabled/failed — the frontend falls back to ChartRenderer.
+    # 2026-09-19: per-item image field, SUPERSEDED the same day by the
+    # report-level `ReportSpec.report_image_url` (see
+    # app/ai/chart_image_client.py). Kept in the schema for backward
+    # compatibility; no longer populated by the backend.
     image_url: str | None = None
 
 
@@ -66,10 +67,10 @@ class TableSpec(BaseModel):
     columns: list[TableColumnSpec]
     rows: list[dict[str, Any]] = Field(default_factory=list)
     source_node_id: str | None = None
-    # 2026-09-19 explicit user override: AI-generated depiction of this
-    # table's real `rows`, replacing DataTableView rendering when present.
-    # None means image generation is disabled/failed — the frontend falls
-    # back to DataTableView.
+    # 2026-09-19: per-item image field, SUPERSEDED the same day by the
+    # report-level `ReportSpec.report_image_url` (see
+    # app/ai/chart_image_client.py). Kept in the schema for backward
+    # compatibility; no longer populated by the backend.
     image_url: str | None = None
 
 
@@ -99,6 +100,17 @@ class ReportSpec(BaseModel):
     insights: list[InsightSpec] = Field(default_factory=list)
     layout: list[dict[str, Any]] = Field(default_factory=list)
     banner_image_url: str | None = None
+    # 2026-09-19 single-image revision (see app/ai/chart_image_client.py):
+    # ONE AI-generated image depicting the ENTIRE report (title + all KPIs +
+    # all charts + all tables + all insights) as one cohesive dashboard
+    # picture. Report-level field, distinct from `banner_image_url` (a purely
+    # decorative header image, unrelated to data) and from the per-item
+    # `image_url` fields on KPISpec/ChartSpec/TableSpec below (kept in the
+    # schema for backward compatibility but no longer populated by the
+    # backend going forward — superseded by this single report-level image).
+    # None means image generation is disabled or failed; the frontend then
+    # falls back to rendering the full multi-section ECharts/DOM layout.
+    report_image_url: str | None = None
     query_trace: list[QueryTraceSpec] = Field(default_factory=list)
     generated_by: Literal["ai", "heuristic"] = "heuristic"
 

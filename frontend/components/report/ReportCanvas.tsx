@@ -113,7 +113,24 @@ export function ReportCanvas({ report }: { report: ReportSpec }) {
           )}
         </div>
 
-        <RenderSections sections={sections} onBackToTop={scrollToTop} categoryColorMap={categoryColorMap} />
+        {/* 2026-09-19 single-image revision: when the backend produced ONE
+            AI-generated image for the whole report (title + KPIs + charts +
+            tables + insights all composed together), render ONLY that image
+            for the report body — no mixing with the per-section DOM layout.
+            report_image_url is absent/null when image generation is disabled
+            or failed, in which case the full multi-section ECharts/DOM
+            layout below is rendered as the report-level fallback, exactly as
+            it worked before this change. */}
+        {report.report_image_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={report.report_image_url}
+            alt={report.title}
+            className="w-full rounded-xl border border-border object-contain"
+          />
+        ) : (
+          <RenderSections sections={sections} onBackToTop={scrollToTop} categoryColorMap={categoryColorMap} />
+        )}
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2">
@@ -305,24 +322,9 @@ function KpiStat({ kpi, accentIndex }: { kpi: KPISpec; accentIndex: number }) {
     : { backgroundColor: accent.bg, color: accent.text };
   const badgeColor = risky ? "bg-destructive/10 text-destructive" : undefined;
 
-  // 2026-09-19 explicit user override: when the backend produced an
-  // AI-generated image for this KPI (gpt-image-2), render that image instead
-  // of the numeric display. image_url is absent/null when image generation
-  // is disabled or failed for this item — the original numeric rendering
-  // below is kept fully intact as that fallback.
-  if (kpi.image_url) {
-    return (
-      <div className="overflow-hidden rounded-xl border border-border bg-background shadow-sm transition-shadow hover:shadow-md">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={kpi.image_url}
-          alt={`${kpi.label}: ${formatValue(kpi.value, kpi.format)}`}
-          className="h-full w-full object-cover"
-        />
-      </div>
-    );
-  }
-
+  // Note: KPISpec.image_url (per-item AI image) is superseded by the
+  // report-level report_image_url (see ReportCanvas above) and is no longer
+  // populated by the backend, so this always renders the real numeric value.
   return (
     <div className="rounded-xl border border-border bg-background p-4 shadow-sm transition-shadow hover:shadow-md">
       <div className="flex items-start justify-between gap-2">
@@ -404,31 +406,20 @@ function ChartBlock({
       </div>
       {chart.subtitle && <p className="pl-3.5 text-xs text-muted-foreground">{chart.subtitle}</p>}
       <div className="mt-2 h-72 w-full overflow-hidden rounded-lg">
-        {/* 2026-09-19 explicit user override: when the backend produced an
-            AI-generated image for this chart (gpt-image-2), render that image
-            instead of the ECharts renderer. image_url is absent/null when
-            image generation is disabled or failed for this item — the
-            original ChartRenderer path below is kept fully intact as that
-            fallback. */}
-        {chart.image_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={chart.image_url}
-            alt={chart.title}
-            className="h-full w-full object-contain"
-          />
-        ) : (
-          <ChartRenderer
-            type={chart.type}
-            data={chart.data || []}
-            xField={chart.x_field}
-            yField={chart.y_field}
-            series={chart.series}
-            seriesField={seriesField}
-            format={inferChartFormat(chart)}
-            categoryColorMap={categoryColorMap}
-          />
-        )}
+        {/* Note: ChartSpec.image_url (per-item AI image) is superseded by
+            the report-level report_image_url (see ReportCanvas above) and is
+            no longer populated by the backend, so this always renders via
+            ChartRenderer (ECharts). */}
+        <ChartRenderer
+          type={chart.type}
+          data={chart.data || []}
+          xField={chart.x_field}
+          yField={chart.y_field}
+          series={chart.series}
+          seriesField={seriesField}
+          format={inferChartFormat(chart)}
+          categoryColorMap={categoryColorMap}
+        />
       </div>
     </div>
   );
@@ -456,24 +447,14 @@ function TableBlock({ table, accentIndex }: { table: TableSpec; accentIndex: num
         <p className="text-sm font-semibold">{table.title}</p>
       </div>
       <div className="mt-2 max-h-96 overflow-auto rounded-lg border border-border/70">
-        {/* 2026-09-19 explicit user override: when the backend produced an
-            AI-generated image for this table (gpt-image-2), render that image
-            instead of DataTableView. image_url is absent/null when image
-            generation is disabled or failed for this item — the original
-            DataTableView path below is kept fully intact as that fallback. */}
-        {table.image_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={table.image_url}
-            alt={table.title}
-            className="w-full object-contain"
-          />
-        ) : (
-          <DataTableView
-            data={table.rows}
-            columns={table.columns.map((c) => c.field)}
-          />
-        )}
+        {/* Note: TableSpec.image_url (per-item AI image) is superseded by
+            the report-level report_image_url (see ReportCanvas above) and is
+            no longer populated by the backend, so this always renders via
+            DataTableView. */}
+        <DataTableView
+          data={table.rows}
+          columns={table.columns.map((c) => c.field)}
+        />
       </div>
     </div>
   );

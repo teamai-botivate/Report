@@ -16,7 +16,7 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from app.ai.chart_image_client import attach_report_images
+from app.ai.chart_image_client import generate_full_report_image
 from app.ai.image_client import generate_decorative_image
 from app.ai.openai_client import is_enabled, structured_completion
 from app.query_engine.plan import QueryPlan, QueryPlanNode
@@ -157,13 +157,16 @@ async def build_report(question: str, plan: QueryPlan, analytics_summary: dict) 
     except Exception:  # noqa: BLE001 - banner is best-effort, never required
         pass
 
-    # 2026-09-19 explicit user override (see app/ai/chart_image_client.py
-    # module docstring): every KPI/chart/table is ALSO rendered as an
-    # AI-generated image from this same already-materialized real data.
-    # Runs for both the AI report path and the heuristic fallback path above,
-    # as long as OPENAI_API_KEY is configured for the image call itself —
-    # independent of whether AI text-generation (structured_completion) is
-    # enabled. Non-fatal: image_url stays None on any failure/disablement.
+    # 2026-09-19 single-image revision (see app/ai/chart_image_client.py
+    # module docstring): the WHOLE report (title + all KPIs + all charts +
+    # all tables + all insights) is rendered as ONE AI-generated image from
+    # this same already-materialized real data, replacing the earlier
+    # per-KPI/per-chart/per-table image approach. Runs for both the AI report
+    # path and the heuristic fallback path above, as long as OPENAI_API_KEY
+    # is configured for the image call itself — independent of whether AI
+    # text-generation (structured_completion) is enabled. Non-fatal:
+    # report_image_url stays None on any failure/disablement, and the
+    # frontend then falls back to the full multi-section ECharts/DOM layout.
     await _attach_images_safely(report)
 
     return report
@@ -171,7 +174,7 @@ async def build_report(question: str, plan: QueryPlan, analytics_summary: dict) 
 
 async def _attach_images_safely(report: ReportSpec) -> None:
     try:
-        await attach_report_images(report)
+        report.report_image_url = await generate_full_report_image(report)
     except Exception:  # noqa: BLE001 - image rendering is best-effort, never required
         pass
 

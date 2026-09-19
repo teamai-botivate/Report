@@ -149,9 +149,9 @@ async def run_recommended(report_id: str) -> ReportSpec:
     report.title = item.title
     report.subtitle = item.description
     report.generated_by = "heuristic"
-    # 2026-09-19 explicit user override: recommended reports also get
-    # AI-generated chart/KPI/table images (see app/ai/chart_image_client.py),
+    # 2026-09-19 single-image revision: recommended reports also get ONE
+    # AI-generated whole-report image (see app/ai/chart_image_client.py),
     # since they work with no OpenAI key at all today and should keep working
-    # identically when one isn't configured (image_url just stays None).
+    # identically when one isn't configured (report_image_url just stays None).
     await _attach_images_safely(report)
     return report

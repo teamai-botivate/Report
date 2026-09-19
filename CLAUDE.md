@@ -39,26 +39,51 @@ read-only schema/database explorer).
   This reverses the "never data-bearing" rule above for chart/KPI/table rendering specifically — see
   `app/ai/chart_image_client.py`'s module docstring for the full accepted tradeoff. The original decorative
   function `generate_decorative_image(title, theme)` in `app/ai/image_client.py` is untouched and still
-  governed by the original rule (report banners only, never row data). The new, separate
-  `app/ai/chart_image_client.py` functions are the ones that now take real KPI/chart/table data and format
-  it into image prompts. ECharts/DOM rendering is kept fully intact as the automatic fallback whenever
-  `image_url` is absent (image generation disabled or failed for that item) — it is not deleted.
+  governed by the original rule (report banners only, never row data).
+  **2026-09-19 (still later the same day) — single-image revision, superseding the per-section approach
+  two paragraphs up**: live testing of the per-KPI/per-chart/per-table image approach surfaced a real
+  problem — when one section's image generation failed (e.g. a delayed-orders table with up to 500 rows),
+  the frontend fell back to a plain scrollable HTML table for just that section, producing a report that
+  visibly mixed polished AI images with a jarring scrolling-HTML-table section. The user confirmed the fix:
+  replace ALL per-section image generation with ONE single AI-generated image for the ENTIRE report (title
+  + all KPIs + all charts + all tables + all insights, composed together on one canvas), with NO DOM/
+  ECharts fallback mixed in at the section level — a report is either one cohesive image, or (if image
+  generation is disabled/fails) the full multi-section ECharts/DOM layout, never a blend of the two. The
+  user explicitly accepted the added tradeoff that the one image has no interactivity (no chart hover
+  tooltips, no table sorting, no per-section theme switching) — it's a static picture. Implemented as
+  `generate_full_report_image(report)` in `app/ai/chart_image_client.py`, called once per report from
+  `report_agent.py`/`recommended.py` (replacing the old `attach_report_images()` call site), setting the new
+  report-level `ReportSpec.report_image_url` field (distinct from the decorative `banner_image_url` and
+  from the now-unused-but-still-present per-item `KPISpec`/`ChartSpec`/`TableSpec.image_url` fields, kept
+  only for schema backward compatibility). The old per-section functions (`generate_kpi_image`,
+  `generate_chart_image`, `generate_table_image`, `attach_report_images`) are kept in the same file, unused
+  by the live path, in case per-section generation is wanted again later. ECharts/DOM rendering
+  (`ChartRenderer.tsx`, `DataTableView.tsx`, and the rest of `ReportCanvas.tsx`'s per-section rendering) is
+  kept fully intact as the report-level (not per-section) automatic fallback whenever `report_image_url` is
+  absent — it is not deleted.
 - **Read-only SQL execution**: every AI-generated query is (a) parsed with `sqlglot`, (b) checked against
   a single-statement SELECT-only AST allowlist, (c) run with a statement timeout + row limit, (d)
   audit-logged. Production additionally uses a real read-only Postgres role. **Unchanged by the image
   override above** — only rendering of already-validated, already-executed query results changed; the
   query pipeline itself, the SQL safety gate, and `_materialize_report`'s verbatim data copy are untouched.
-- **Charts**: as of 2026-09-19, rendered as AI-generated images via `gpt-image-2`
-  (`app/ai/chart_image_client.py`), built from the real `ChartSpec`/`KPISpec`/`TableSpec` data that
-  `_materialize_report` already copied verbatim from executed query results — an explicit, three-times-
+- **Charts**: as of 2026-09-19 (single-image revision, see above), an entire report is rendered as ONE
+  AI-generated image via `gpt-image-2` (`app/ai/chart_image_client.py`'s `generate_full_report_image`),
+  built from the real `ReportSpec` (all `KPISpec`/`ChartSpec`/`TableSpec`/`InsightSpec` data) that
+  `_materialize_report` already copied verbatim from executed query results — an explicit, repeatedly-
   confirmed user override of the original "always ECharts/DOM, no image model ever touches chart pixels"
-  rule. **Image output correctness is NOT verifiable or guaranteed** — this is an accepted, deliberate
-  accuracy tradeoff, not an oversight. ECharts (`ChartRenderer.tsx`/`DataTableView.tsx`) is retained
-  unmodified as the automatic fallback rendering path whenever `image_url` is null (image generation
-  disabled via missing `OPENAI_API_KEY`, or a per-item generation failure) — see "Known issues" below.
-- **PNG export**: client-side render-to-PNG of the actual DOM/canvas node (html-to-image). When a
-  chart/KPI/table is rendering as an AI-generated `<img>` instead of DOM/ECharts, this now captures that
-  image content directly (no code change needed there — it already snapshots whatever is in the DOM).
+  rule, now superseding an even earlier same-day per-section (per-KPI/per-chart/per-table) version of that
+  override. **Image output correctness is NOT verifiable or guaranteed — more so now than in the
+  per-section version**, since packing an entire report's numbers/labels/rows into ONE generation call
+  multiplies the surface area for a misread digit or mislabeled value versus one image per item. This is
+  an accepted, deliberate accuracy tradeoff, explicitly re-confirmed by the user with this specific
+  "one image now carries far more numbers" risk spelled out, not an oversight. ECharts/DOM rendering
+  (`ChartRenderer.tsx`/`DataTableView.tsx`/`ReportCanvas.tsx`'s per-section layout) is retained unmodified
+  as the report-level automatic fallback whenever `report_image_url` is null (image generation disabled via
+  missing `OPENAI_API_KEY`, or the single generation call failed) — see "Known issues" below.
+- **PNG export**: client-side render-to-PNG of the actual DOM/canvas node (html-to-image). When the report
+  is rendering as the single AI-generated `<img>` instead of the per-section DOM/ECharts layout, this still
+  captures that image content directly (no code change needed there — it already snapshots whatever is in
+  the DOM).
 
 ## Repo layout
 
@@ -111,16 +136,22 @@ docs: README.md, ARCHITECTURE.md, DATABASE.md, AI_ARCHITECTURE.md, API.md, SETUP
     Structurally cannot be given chart/KPI/table data as generation input — its prompt builder only
     accepts a report title/theme, never row data or numeric values. **Unchanged** by the 2026-09-19 chart-
     image override below; this remains the narrow, non-data-bearing function it always was.
-12. Chart/KPI/Table Image Agent (`ai/chart_image_client.py`, added 2026-09-19) — explicit user override of
-    the original ECharts-only rendering rule (see Stack decisions → Charts). `generate_chart_image`,
-    `generate_kpi_image`, `generate_table_image` format the REAL, already-materialized `ChartSpec`/
-    `KPISpec`/`TableSpec` data (every row/value, capped at 30 data points per prompt with an explicit
-    truncation note beyond that) into a detailed text prompt and call `gpt-image-2`; `attach_report_images`
-    runs all of a report's image calls concurrently (max 4 at once) and sets each spec's `image_url`,
-    non-fatally (a failed/disabled item just keeps `image_url = None`). Wired into both `build_report`'s AI
-    path and its heuristic-fallback path, and into `run_recommended`, so every report gets images whenever
-    `OPENAI_API_KEY` is set, independent of whether AI text-generation is enabled. Does not touch the query
-    pipeline or `_materialize_report`'s verbatim-data-copy guarantee — only adds a rendering step after it.
+12. Full-Report Image Agent (`ai/chart_image_client.py`, added 2026-09-19, revised to single-image the
+    same day) — explicit user override of the original ECharts-only rendering rule (see Stack decisions →
+    Charts). `generate_full_report_image(report)` formats the REAL, already-materialized whole `ReportSpec`
+    (every KPI value, every chart's data points capped at 30 per chart, every table's rows capped at ~18 per
+    table with an explicit truncation note stating the true total, every insight) into ONE detailed text
+    prompt (via a `_refine_full_report_prompt` prompt-writer step, same `gpt-4.1` model) and calls
+    `gpt-image-2` ONCE to produce ONE image for the entire report, setting the report-level
+    `ReportSpec.report_image_url`, non-fatally (disabled/failed just leaves it `None`). Wired into both
+    `build_report`'s AI path and its heuristic-fallback path (via `report_agent._attach_images_safely`), and
+    into `run_recommended`, so every report gets one image whenever `OPENAI_API_KEY` is set, independent of
+    whether AI text-generation is enabled. Supersedes an earlier same-day per-section version
+    (`generate_chart_image`/`generate_kpi_image`/`generate_table_image`/`attach_report_images`, which set a
+    separate `image_url` per KPI/chart/table) — that per-section code is kept in the same file, unused by
+    the live path, in case per-section generation is wanted again later; nothing in `report_agent.py` or
+    `reports/recommended.py` calls it anymore. Does not touch the query pipeline or `_materialize_report`'s
+    verbatim-data-copy guarantee — only adds one rendering step after it.
 
 Pipeline for a turn: schema retrieval → query plan DAG → SQL generation → validation → execution →
 deterministic analytics → Report Agent → one `ReportSpec` → NL explanation. `REPORT_EDIT` is a separate,
@@ -154,8 +185,9 @@ See `.env.example`. Key ones:
 - `OPENAI_API_KEY` — required for AI features; without it chat returns `error: "ai_disabled"`.
 - `OPENAI_MODEL` — default `gpt-4.1`.
 - `OPENAI_IMAGE_MODEL` — default `gpt-image-2`. Used for (a) decorative report banners
-  (`image_client.py`, unchanged original scope) and (b), as of 2026-09-19, AI-generated chart/KPI/table
-  images that replace ECharts/DOM rendering (`chart_image_client.py`) — see Stack decisions → Charts.
+  (`image_client.py`, unchanged original scope) and (b), as of 2026-09-19, ONE AI-generated whole-report
+  image per report that replaces the full multi-section ECharts/DOM rendering (`chart_image_client.py`'s
+  `generate_full_report_image`) — see Stack decisions → Charts.
 - `SEED_SIZE` — `small|medium|large` (default `medium` for fast local iteration).
 - `AUTO_SEED_ON_BOOT` — default `true`.
 - `SQL_QUERY_TIMEOUT_MS`, `SQL_MAX_ROWS`, `SQL_MAX_RETRY`.
@@ -173,18 +205,29 @@ See `.env.example`. Key ones:
   returns the real ₹15,520,077.50 for the current month. Left `_database_is_empty()`'s single-table check
   as-is (by user decision) rather than adding per-table health checks — if this recurs, that's the place to
   revisit.
-- **Chart/KPI/table rendering is now AI image generation, not deterministic (2026-09-19, explicit user
-  decision, confirmed three times with the risk explained each time)**: every KPI, chart, and table can
-  render as a `gpt-image-2`-generated image (`app/ai/chart_image_client.py`) depicting the real query data,
-  instead of ECharts/DOM. This is NOT pixel-verifiable — the image model draws the numbers/labels itself,
-  so a digit, label, or bar length in the picture is not guaranteed to exactly match the underlying data,
-  which conflicts with this project's own "AI must never fabricate a business number" principle and its
-  automated-testing guarantees for chart output specifically. The user was told this plainly and chose to
-  proceed anyway; this is a deliberate, accepted tradeoff, not a bug. The underlying data itself is
-  unaffected — it still comes only from real, validated, executed SQL (`_materialize_report` is untouched).
-  ECharts/DOM rendering (`ChartRenderer.tsx`, `DataTableView.tsx`) is retained and used automatically
-  whenever `image_url` is null — i.e. whenever `OPENAI_API_KEY` isn't configured, or a given image call
-  failed — so accuracy is only sacrificed when image generation actually ran and returned something.
+- **A whole report can render as ONE AI-generated image, not deterministic ECharts/DOM (2026-09-19,
+  explicit user decision, confirmed repeatedly with the risk explained each time)**: a report's title, all
+  KPIs, all charts, all tables, and all insights can render together as a single `gpt-image-2`-generated
+  image (`app/ai/chart_image_client.py`'s `generate_full_report_image`, set on `ReportSpec.report_image_url`)
+  depicting the real report data, instead of the multi-section ECharts/DOM layout. This supersedes an
+  earlier same-day per-section version (one image per KPI/chart/table) that was found to look inconsistent
+  in practice: when one section's image failed to generate (observed with a large delayed-orders table, up
+  to 500 rows), the frontend fell back to a plain scrollable HTML table for just that section, producing a
+  report that visibly mixed polished AI images with a jarring scrolling-HTML-table section. The fix the user
+  chose was to stop mixing rendering modes at the section level entirely: a report is now either ONE
+  cohesive image or the full ECharts/DOM layout, never a blend. This is NOT pixel-verifiable — the image
+  model draws every number/label itself, so a digit, label, bar length, or table value in the picture is not
+  guaranteed to exactly match the underlying data, which conflicts with this project's own "AI must never
+  fabricate a business number" principle and its automated-testing guarantees for chart output specifically.
+  **This risk is larger now than in the per-section version**, since one image must now reproduce every
+  number from every KPI/chart/table/insight in a single generation call — the user was told this
+  specifically (one image now carries far more numbers) and chose to proceed anyway; this is a deliberate,
+  accepted tradeoff, not a bug. The underlying data itself is unaffected — it still comes only from real,
+  validated, executed SQL (`_materialize_report` is untouched). The full multi-section ECharts/DOM layout
+  (`ChartRenderer.tsx`, `DataTableView.tsx`, `ReportCanvas.tsx`) is retained and used automatically whenever
+  `report_image_url` is null — i.e. whenever `OPENAI_API_KEY` isn't configured, or the single image call
+  failed — so accuracy is only sacrificed when the image actually generated and returned something, and the
+  fallback is always the complete, consistent DOM report, never a mix of image and DOM sections.
 - No Docker/Postgres available in this dev environment → SQLite used for dev/test; Postgres-specific SQL
   avoided so both engines work.
 - "GPT-5.6 Sol" from the spec does not exist as a real OpenAI API model id; using `gpt-4.1` instead,
