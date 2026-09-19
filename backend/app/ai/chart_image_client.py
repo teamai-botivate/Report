@@ -39,6 +39,21 @@ What is UNCHANGED and still fully guaranteed:
   - The existing decorative-only `generate_decorative_image()` function in
     `app/ai/image_client.py` is untouched: it remains a separate, narrower,
     non-data-bearing function for report banners.
+
+PROMPT AGENT (2026-09-19, added at user request for better image quality):
+a small intermediate text-LLM step (`_refine_prompt`, using the same
+`gpt-4.1` model already used elsewhere in the app) rewrites each data-
+accurate draft prompt (built by `_build_chart_prompt`/`_build_kpi_prompt`/
+`_build_table_prompt`) into a more detailed, better art-directed prompt
+before it reaches gpt-image-2 — improving layout/color/typography guidance
+without touching the real values embedded in it. The system prompt for this
+step explicitly instructs the model to preserve every number/label verbatim.
+This is a style-quality improvement only; it does not change, and cannot
+improve, the fundamental lack of pixel-level accuracy guarantee described
+above — a prompt-refinement bug or a refined prompt the image model
+misreads can still produce a visual that doesn't exactly match the source
+data. If text AI is disabled or refinement fails, the original, simpler
+draft prompt is used unchanged (see `_refine_prompt`'s fallback behavior).
 """
 from __future__ import annotations
 
@@ -46,11 +61,28 @@ import asyncio
 import logging
 from typing import Any
 
+from app.ai.openai_client import chat_completion
+from app.ai.openai_client import is_enabled as text_ai_is_enabled
 from app.core.config import get_settings
 from app.schemas.report import ChartSpec, KPISpec, TableSpec
 
 logger = logging.getLogger("app.ai.chart_image")
 settings = get_settings()
+
+_PROMPT_WRITER_SYSTEM = (
+    "You are a prompt-writing specialist for an AI image generation model "
+    "(gpt-image-2) that draws business intelligence dashboard visuals. You "
+    "will be given a plain, data-accurate description of a chart, KPI card, "
+    "or table (including its exact real values, which you MUST preserve "
+    "verbatim — do not alter, round, invent, or drop any number, label, or "
+    "row). Rewrite it into a single detailed, vivid image-generation prompt "
+    "that will produce a polished, professional, premium BI dashboard visual: "
+    "specify layout, color palette, typography feel, spacing, and visual "
+    "hierarchy precisely, the way a senior product designer would brief an "
+    "illustrator. Keep every real number/label from the input exactly as "
+    "given. Do not add commentary, explanation, or markdown — output ONLY "
+    "the final image-generation prompt text."
+)
 
 # Keep prompts readable and within reasonable size/cost — if a chart/table has
 # more rows than this, only the first N (in whatever order they already
@@ -98,10 +130,40 @@ def _truncation_note(total: int, shown: int) -> str:
     )
 
 
+async def _refine_prompt(draft_prompt: str) -> str:
+    """Prompt Agent step (2026-09-19): runs the data-accurate draft prompt
+    built by _build_*_prompt through a text-LLM (gpt-4.1, same model already
+    used for the rest of the app) to turn it into a more detailed, better
+    art-directed image-generation prompt, before handing it to gpt-image-2.
+
+    This does NOT touch or re-derive any data — it only rewrites style/layout
+    instructions around the numbers/labels the draft prompt already contains,
+    and the system prompt explicitly instructs the model to preserve every
+    real value verbatim. If text AI is disabled or this call fails for any
+    reason, falls back to the original draft prompt unchanged (never blocks
+    or fails image generation over a prompt-refinement hiccup).
+    """
+    if not text_ai_is_enabled():
+        return draft_prompt
+    try:
+        refined = await chat_completion(
+            system=_PROMPT_WRITER_SYSTEM,
+            user=draft_prompt,
+            temperature=0.4,
+            max_tokens=800,
+        )
+        refined = refined.strip()
+        return refined if refined else draft_prompt
+    except Exception:  # noqa: BLE001 - prompt refinement is best-effort, never blocks image generation
+        logger.exception("Prompt refinement failed; falling back to the draft prompt (non-fatal).")
+        return draft_prompt
+
+
 async def _generate_image(prompt: str) -> str | None:
     """Shared call/response-parsing logic — same non-fatal error handling and
     b64_json/url fallback pattern as generate_decorative_image()."""
     try:
+        prompt = await _refine_prompt(prompt)
         client = _get_client()
         response = await client.images.generate(
             model=settings.OPENAI_IMAGE_MODEL,
