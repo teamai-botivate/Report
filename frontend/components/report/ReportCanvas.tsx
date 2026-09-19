@@ -306,17 +306,17 @@ function KpiStat({ kpi, accentIndex }: { kpi: KPISpec; accentIndex: number }) {
   const badgeColor = risky ? "bg-destructive/10 text-destructive" : undefined;
 
   return (
-    <div className="rounded-2xl border border-border bg-background p-4 shadow-sm transition-shadow hover:shadow-md">
+    <div className="rounded-xl border border-border bg-background p-4 shadow-sm transition-shadow hover:shadow-md">
       <div className="flex items-start justify-between gap-2">
         <p className="truncate text-xs font-medium text-muted-foreground">{kpi.label}</p>
         <span
-          className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full", badgeColor)}
+          className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", badgeColor)}
           style={badgeStyle}
         >
-          <Icon className="h-4 w-4" />
+          <Icon className="h-4.5 w-4.5" />
         </span>
       </div>
-      <p className="mt-2 truncate text-2xl font-bold tabular-nums tracking-tight">
+      <p className="mt-2.5 truncate text-2xl font-bold tabular-nums tracking-tight">
         {formatValue(kpi.value, kpi.format)}
       </p>
       {kpi.delta !== null && kpi.delta !== undefined && (
@@ -373,7 +373,7 @@ function ChartBlock({
 
   return (
     <div
-      className="h-full rounded-2xl border border-border bg-background p-4 pt-3.5 shadow-sm"
+      className="h-full rounded-xl border border-border bg-background p-4 pt-3.5 shadow-sm"
       style={{ borderTop: `3px solid ${accent.border}` }}
     >
       <div className="flex items-center gap-1.5">
@@ -411,7 +411,7 @@ function TableBlock({ table, accentIndex }: { table: TableSpec; accentIndex: num
 
   return (
     <div
-      className="mb-4 rounded-2xl border border-border bg-background p-4 pt-3.5 shadow-sm"
+      className="mb-4 rounded-xl border border-border bg-background p-4 pt-3.5 shadow-sm"
       style={{ borderTop: `3px solid ${accent.border}` }}
     >
       <div className="flex items-center gap-1.5">

@@ -513,7 +513,7 @@ function buildOption(
           left: "center",
           bottom: 0,
           textStyle: { color: c.textSecondary },
-          inRange: { color: dark ? ["#0d366b", "#3987e5"] : ["#cde2fb", "#2a78d6"] },
+          inRange: { color: dark ? ["#0f2e6b", "#5b8ff9"] : ["#dbeafe", "#2563eb"] },
         },
         series: [
           {
