@@ -4,6 +4,15 @@ import os
 
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///./test.db")
 os.environ.setdefault("AUTO_SEED_ON_BOOT", "false")
+# Force AI (text + image) off for the automated suite, overriding any real
+# key loaded from backend/.env for local dev. Without this, every test that
+# reaches report_agent._attach_images_safely / attach_report_images (e.g.
+# test_recommended_reports.py, which runs every recommended report end to
+# end) would make real network calls to the OpenAI image API per
+# KPI/chart/table — slow, flaky against rate limits, and burns real quota
+# on every `pytest` run. The suite must stay free and deterministic; live
+# AI/image behavior is verified manually against a real key, not here.
+os.environ["OPENAI_API_KEY"] = ""
 
 import pytest
 import pytest_asyncio

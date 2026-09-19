@@ -16,6 +16,7 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
+from app.ai.chart_image_client import attach_report_images
 from app.ai.image_client import generate_decorative_image
 from app.ai.openai_client import is_enabled, structured_completion
 from app.query_engine.plan import QueryPlan, QueryPlanNode
@@ -124,7 +125,9 @@ async def build_report(question: str, plan: QueryPlan, analytics_summary: dict) 
         return _empty_report(question, plan)
 
     if not is_enabled():
-        return heuristic_report(question, plan, analytics_summary)
+        report = heuristic_report(question, plan, analytics_summary)
+        await _attach_images_safely(report)
+        return report
 
     node_summaries = [_node_summary(n) for n in successful]
     user_prompt = (
@@ -142,7 +145,9 @@ async def build_report(question: str, plan: QueryPlan, analytics_summary: dict) 
             temperature=0.2,
         )
     except Exception:  # noqa: BLE001 - report composition failure degrades to heuristic, never crashes the turn
-        return heuristic_report(question, plan, analytics_summary)
+        report = heuristic_report(question, plan, analytics_summary)
+        await _attach_images_safely(report)
+        return report
 
     report = _materialize_report(llm_plan, plan, analytics_summary)
 
@@ -152,7 +157,23 @@ async def build_report(question: str, plan: QueryPlan, analytics_summary: dict) 
     except Exception:  # noqa: BLE001 - banner is best-effort, never required
         pass
 
+    # 2026-09-19 explicit user override (see app/ai/chart_image_client.py
+    # module docstring): every KPI/chart/table is ALSO rendered as an
+    # AI-generated image from this same already-materialized real data.
+    # Runs for both the AI report path and the heuristic fallback path above,
+    # as long as OPENAI_API_KEY is configured for the image call itself —
+    # independent of whether AI text-generation (structured_completion) is
+    # enabled. Non-fatal: image_url stays None on any failure/disablement.
+    await _attach_images_safely(report)
+
     return report
+
+
+async def _attach_images_safely(report: ReportSpec) -> None:
+    try:
+        await attach_report_images(report)
+    except Exception:  # noqa: BLE001 - image rendering is best-effort, never required
+        pass
 
 
 def _guess_theme(plan: QueryPlan) -> str:
@@ -484,4 +505,11 @@ def heuristic_report(question: str, plan: QueryPlan, analytics_summary: dict) ->
     )
 
 
-__all__ = ["build_report", "heuristic_report", "_materialize_report", "_kpi_scalar", "_filter_insights"]
+__all__ = [
+    "build_report",
+    "heuristic_report",
+    "_materialize_report",
+    "_kpi_scalar",
+    "_filter_insights",
+    "_attach_images_safely",
+]

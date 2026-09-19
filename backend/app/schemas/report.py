@@ -25,6 +25,11 @@ class KPISpec(BaseModel):
     delta_label: str | None = None
     trend: Literal["up", "down", "flat"] | None = None
     source_node_id: str | None = None
+    # 2026-09-19 explicit user override (see app/ai/chart_image_client.py):
+    # AI-generated depiction of this KPI card, replacing DOM/ECharts rendering
+    # when present. None means image generation is disabled/failed — the
+    # frontend falls back to rendering `value`/`format` directly as before.
+    image_url: str | None = None
 
 
 class ChartSeriesSpec(BaseModel):
@@ -43,6 +48,10 @@ class ChartSpec(BaseModel):
     data: list[dict[str, Any]] = Field(default_factory=list)
     source_node_id: str | None = None
     color_theme: str | None = None
+    # 2026-09-19 explicit user override: AI-generated depiction of this chart's
+    # real `data`, replacing ECharts rendering when present. None means image
+    # generation is disabled/failed — the frontend falls back to ChartRenderer.
+    image_url: str | None = None
 
 
 class TableColumnSpec(BaseModel):
@@ -57,6 +66,11 @@ class TableSpec(BaseModel):
     columns: list[TableColumnSpec]
     rows: list[dict[str, Any]] = Field(default_factory=list)
     source_node_id: str | None = None
+    # 2026-09-19 explicit user override: AI-generated depiction of this
+    # table's real `rows`, replacing DataTableView rendering when present.
+    # None means image generation is disabled/failed — the frontend falls
+    # back to DataTableView.
+    image_url: str | None = None
 
 
 class InsightSpec(BaseModel):

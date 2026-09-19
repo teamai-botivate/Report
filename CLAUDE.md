@@ -28,18 +28,37 @@ read-only schema/database explorer).
   current OpenAI API model id, distinct from the newer `gpt-image-2.5-flare`/`gpt-image-2.5-sunburst`
   variants which also exist but were not selected — code never hardcodes the literal model id so
   swapping variants later is a one-line env change).
-  **Scope of image generation — decorative only, never data-bearing**: used only for empty-state
-  illustrations, a per-report accent/header banner image, and category icons. **Never** used to render a
-  chart, KPI, table, or any pixel that contains a business number — those are always ECharts/DOM,
-  rendered client-side from real query rows. This is a hard rule requested and confirmed by the user
-  (2026-09-19): an image-generation model cannot guarantee that digits/labels/bar heights it draws match
-  real data, which would violate the project's core "AI must never fabricate a business number" rule.
+  **Original scope (superseded below, kept for history)**: this was originally decorative-only, never
+  data-bearing — empty-state illustrations, a per-report banner image, category icons — and explicitly
+  never used to render a chart/KPI/table/any pixel with a real business number, per a hard rule requested
+  and confirmed by the user on 2026-09-19 (image generation can't guarantee drawn digits/labels match real
+  data, which would violate the project's "AI must never fabricate a business number" rule).
+  **2026-09-19 (later same day) — explicit user override, confirmed three separate times with the
+  accuracy risk spelled out each time**: the user then asked to REPLACE ECharts/DOM rendering of every
+  chart, KPI, and table with `gpt-image-2` image generation, real query data formatted into the prompt.
+  This reverses the "never data-bearing" rule above for chart/KPI/table rendering specifically — see
+  `app/ai/chart_image_client.py`'s module docstring for the full accepted tradeoff. The original decorative
+  function `generate_decorative_image(title, theme)` in `app/ai/image_client.py` is untouched and still
+  governed by the original rule (report banners only, never row data). The new, separate
+  `app/ai/chart_image_client.py` functions are the ones that now take real KPI/chart/table data and format
+  it into image prompts. ECharts/DOM rendering is kept fully intact as the automatic fallback whenever
+  `image_url` is absent (image generation disabled or failed for that item) — it is not deleted.
 - **Read-only SQL execution**: every AI-generated query is (a) parsed with `sqlglot`, (b) checked against
   a single-statement SELECT-only AST allowlist, (c) run with a statement timeout + row limit, (d)
-  audit-logged. Production additionally uses a real read-only Postgres role.
-- **Charts**: rendered client-side from structured `visualization` JSON + real row data returned by the
-  backend. No image-generation model ever touches chart pixels (see above).
-- **PNG export**: client-side render-to-PNG of the actual DOM/canvas node (html-to-image).
+  audit-logged. Production additionally uses a real read-only Postgres role. **Unchanged by the image
+  override above** — only rendering of already-validated, already-executed query results changed; the
+  query pipeline itself, the SQL safety gate, and `_materialize_report`'s verbatim data copy are untouched.
+- **Charts**: as of 2026-09-19, rendered as AI-generated images via `gpt-image-2`
+  (`app/ai/chart_image_client.py`), built from the real `ChartSpec`/`KPISpec`/`TableSpec` data that
+  `_materialize_report` already copied verbatim from executed query results — an explicit, three-times-
+  confirmed user override of the original "always ECharts/DOM, no image model ever touches chart pixels"
+  rule. **Image output correctness is NOT verifiable or guaranteed** — this is an accepted, deliberate
+  accuracy tradeoff, not an oversight. ECharts (`ChartRenderer.tsx`/`DataTableView.tsx`) is retained
+  unmodified as the automatic fallback rendering path whenever `image_url` is null (image generation
+  disabled via missing `OPENAI_API_KEY`, or a per-item generation failure) — see "Known issues" below.
+- **PNG export**: client-side render-to-PNG of the actual DOM/canvas node (html-to-image). When a
+  chart/KPI/table is rendering as an AI-generated `<img>` instead of DOM/ECharts, this now captures that
+  image content directly (no code change needed there — it already snapshots whatever is in the DOM).
 
 ## Repo layout
 
@@ -90,7 +109,18 @@ docs: README.md, ARCHITECTURE.md, DATABASE.md, AI_ARCHITECTURE.md, API.md, SETUP
 10. Export Agent — CSV/XLSX from underlying rows; PNG is client-rendered from the report canvas DOM.
 11. Image Agent (`ai/image_client.py`) — decorative-only image generation (report banner, empty states).
     Structurally cannot be given chart/KPI/table data as generation input — its prompt builder only
-    accepts a report title/theme, never row data or numeric values.
+    accepts a report title/theme, never row data or numeric values. **Unchanged** by the 2026-09-19 chart-
+    image override below; this remains the narrow, non-data-bearing function it always was.
+12. Chart/KPI/Table Image Agent (`ai/chart_image_client.py`, added 2026-09-19) — explicit user override of
+    the original ECharts-only rendering rule (see Stack decisions → Charts). `generate_chart_image`,
+    `generate_kpi_image`, `generate_table_image` format the REAL, already-materialized `ChartSpec`/
+    `KPISpec`/`TableSpec` data (every row/value, capped at 30 data points per prompt with an explicit
+    truncation note beyond that) into a detailed text prompt and call `gpt-image-2`; `attach_report_images`
+    runs all of a report's image calls concurrently (max 4 at once) and sets each spec's `image_url`,
+    non-fatally (a failed/disabled item just keeps `image_url = None`). Wired into both `build_report`'s AI
+    path and its heuristic-fallback path, and into `run_recommended`, so every report gets images whenever
+    `OPENAI_API_KEY` is set, independent of whether AI text-generation is enabled. Does not touch the query
+    pipeline or `_materialize_report`'s verbatim-data-copy guarantee — only adds a rendering step after it.
 
 Pipeline for a turn: schema retrieval → query plan DAG → SQL generation → validation → execution →
 deterministic analytics → Report Agent → one `ReportSpec` → NL explanation. `REPORT_EDIT` is a separate,
@@ -123,13 +153,27 @@ See `.env.example`. Key ones:
 - `DATABASE_URL` — SQLAlchemy URL. Local dev defaults to SQLite file. Accepts raw Neon Postgres URLs.
 - `OPENAI_API_KEY` — required for AI features; without it chat returns `error: "ai_disabled"`.
 - `OPENAI_MODEL` — default `gpt-4.1`.
-- `OPENAI_IMAGE_MODEL` — default `gpt-image-2` (decorative visuals only — see Stack decisions).
+- `OPENAI_IMAGE_MODEL` — default `gpt-image-2`. Used for (a) decorative report banners
+  (`image_client.py`, unchanged original scope) and (b), as of 2026-09-19, AI-generated chart/KPI/table
+  images that replace ECharts/DOM rendering (`chart_image_client.py`) — see Stack decisions → Charts.
 - `SEED_SIZE` — `small|medium|large` (default `medium` for fast local iteration).
 - `AUTO_SEED_ON_BOOT` — default `true`.
 - `SQL_QUERY_TIMEOUT_MS`, `SQL_MAX_ROWS`, `SQL_MAX_RETRY`.
 
 ## Known issues / assumptions
 
+- **Chart/KPI/table rendering is now AI image generation, not deterministic (2026-09-19, explicit user
+  decision, confirmed three times with the risk explained each time)**: every KPI, chart, and table can
+  render as a `gpt-image-2`-generated image (`app/ai/chart_image_client.py`) depicting the real query data,
+  instead of ECharts/DOM. This is NOT pixel-verifiable — the image model draws the numbers/labels itself,
+  so a digit, label, or bar length in the picture is not guaranteed to exactly match the underlying data,
+  which conflicts with this project's own "AI must never fabricate a business number" principle and its
+  automated-testing guarantees for chart output specifically. The user was told this plainly and chose to
+  proceed anyway; this is a deliberate, accepted tradeoff, not a bug. The underlying data itself is
+  unaffected — it still comes only from real, validated, executed SQL (`_materialize_report` is untouched).
+  ECharts/DOM rendering (`ChartRenderer.tsx`, `DataTableView.tsx`) is retained and used automatically
+  whenever `image_url` is null — i.e. whenever `OPENAI_API_KEY` isn't configured, or a given image call
+  failed — so accuracy is only sacrificed when image generation actually ran and returned something.
 - No Docker/Postgres available in this dev environment → SQLite used for dev/test; Postgres-specific SQL
   avoided so both engines work.
 - "GPT-5.6 Sol" from the spec does not exist as a real OpenAI API model id; using `gpt-4.1` instead,

@@ -143,10 +143,15 @@ async def run_recommended(report_id: str) -> ReportSpec:
     plan = QueryPlan(nodes=[node])
     plan = await execute_plan(plan)
 
-    from app.agents.report_agent import heuristic_report
+    from app.agents.report_agent import heuristic_report, _attach_images_safely
 
     report = heuristic_report(item.title, plan, analytics_summary={})
     report.title = item.title
     report.subtitle = item.description
     report.generated_by = "heuristic"
+    # 2026-09-19 explicit user override: recommended reports also get
+    # AI-generated chart/KPI/table images (see app/ai/chart_image_client.py),
+    # since they work with no OpenAI key at all today and should keep working
+    # identically when one isn't configured (image_url just stays None).
+    await _attach_images_safely(report)
     return report

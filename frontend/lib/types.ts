@@ -28,6 +28,11 @@ export interface KPISpec {
   delta_label?: string | null;
   trend?: Trend | null;
   source_node_id?: string | null;
+  // 2026-09-19 explicit user override: when present, an AI-generated image
+  // depicting this KPI (gpt-image-2) — render it instead of the numeric
+  // display. Absent/null means image generation is disabled or failed; fall
+  // back to rendering `value`/`format` as before.
+  image_url?: string | null;
 }
 
 export interface ChartSeriesSpec {
@@ -46,6 +51,11 @@ export interface ChartSpec {
   data: Record<string, any>[];
   source_node_id?: string | null;
   color_theme?: string | null;
+  // 2026-09-19 explicit user override: when present, an AI-generated image
+  // depicting this chart's real data (gpt-image-2) — render it instead of
+  // ChartRenderer. Absent/null means image generation is disabled/failed;
+  // fall back to ChartRenderer as before.
+  image_url?: string | null;
 }
 
 export type TableColumnFormat =
@@ -68,6 +78,11 @@ export interface TableSpec {
   columns: TableColumnSpec[];
   rows: Record<string, any>[];
   source_node_id?: string | null;
+  // 2026-09-19 explicit user override: when present, an AI-generated image
+  // depicting this table's real rows (gpt-image-2) — render it instead of
+  // DataTableView. Absent/null means image generation is disabled/failed;
+  // fall back to DataTableView as before.
+  image_url?: string | null;
 }
 
 export type InsightKind = "headline" | "note" | "warning";
