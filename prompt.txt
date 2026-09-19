@@ -1,0 +1,1866 @@
+PROJECT: AI-NATIVE BUSINESS INTELLIGENCE & DASHBOARD BUILDER
+
+You are the lead architect and senior full-stack engineer.
+
+Build a production-quality MVP of an AI-Native Business Intelligence platform that works conceptually like Power BI/Tableau, but with a major difference:
+
+THE USER CAN TALK TO THE DASHBOARD.
+
+The user should be able to ask questions, create reports, create charts, modify dashboards, calculate metrics, compare business data, move/resize/style components, and export results using natural language.
+
+At the same time, the application MUST have a powerful manual dashboard editor so everything can also be controlled manually.
+
+==================================================
+1. CORE PRODUCT VISION
+==================================================
+
+The application is a business intelligence system connected to ONE large structured Neon PostgreSQL database.
+
+The database contains multiple interconnected business systems/modules:
+
+- HR
+- Sales
+- Purchase
+- Inventory
+- Production
+- Order-to-Delivery
+- Tasks
+- Finance
+- Customers
+- Suppliers
+- Products
+- Departments
+- Employees
+- Branches
+- Warehouses
+- Calendar/Date dimensions
+- Other supporting master data
+
+There must be NO requirement for the user to manually upload CSV files or manually enter business data for the demo.
+
+The system itself must create and seed a large realistic dummy business database in Neon.
+
+The database must be properly relational and structured.
+
+Use:
+
+- Primary keys
+- Foreign keys
+- Relationships
+- Indexes
+- Constraints
+- Proper data types
+- Date dimensions
+- Master tables
+- Transaction tables
+- Status fields
+- Realistic business relationships
+
+The goal is to simulate a real company database.
+
+==================================================
+2. VERY IMPORTANT: SINGLE SOURCE OF TRUTH
+==================================================
+
+Neon PostgreSQL is the source of truth.
+
+The AI must NEVER invent business numbers.
+
+Every business number shown to the user must come from:
+
+Neon database
++
+validated SQL/query results
++
+deterministic calculations
+
+The LLM can decide:
+
+- what data is needed
+- which tables are relevant
+- which calculations are needed
+- which visualization should be used
+- how the dashboard should be arranged
+
+But the LLM must NOT directly fabricate data.
+
+==================================================
+3. DATABASE SYSTEMS
+==================================================
+
+Create a realistic structured schema.
+
+At minimum implement these modules.
+
+--------------------------------
+HR SYSTEM
+--------------------------------
+
+employees
+departments
+designations
+attendance
+leave_requests
+payroll
+employee_performance
+
+Relationships:
+
+employee -> department
+employee -> designation
+employee -> attendance
+employee -> leave
+employee -> payroll
+employee -> performance
+
+--------------------------------
+SALES SYSTEM
+--------------------------------
+
+leads
+enquiries
+quotations
+sales_orders
+sales_order_items
+sales_invoices
+sales_payments
+sales_returns
+sales_targets
+
+Relationships:
+
+lead -> enquiry
+enquiry -> quotation
+quotation -> sales_order
+sales_order -> sales_order_items
+sales_order -> invoice
+invoice -> payment
+sales_order -> dispatch/delivery
+
+--------------------------------
+PURCHASE SYSTEM
+--------------------------------
+
+suppliers
+purchase_requisitions
+purchase_orders
+purchase_order_items
+material_receipts
+supplier_invoices
+supplier_payments
+purchase_returns
+
+--------------------------------
+INVENTORY SYSTEM
+--------------------------------
+
+products
+product_categories
+warehouses
+stock
+stock_movements
+stock_transfers
+material_batches
+inventory_adjustments
+
+--------------------------------
+PRODUCTION SYSTEM
+--------------------------------
+
+production_orders
+production_order_items
+machines
+machine_downtime
+production_output
+production_rejections
+work_centers
+bom
+bom_items
+
+--------------------------------
+ORDER TO DELIVERY
+--------------------------------
+
+sales order
+production
+packing
+dispatch
+shipment
+delivery
+delivery_status
+delivery_delay
+
+The system should support analysis such as:
+
+Order -> Production -> Dispatch -> Delivery
+
+--------------------------------
+TASK SYSTEM
+--------------------------------
+
+tasks
+task_comments
+task_assignments
+task_status_history
+task_priorities
+task_categories
+
+--------------------------------
+FINANCE SYSTEM
+--------------------------------
+
+accounts
+invoices
+expenses
+receivables
+payables
+payments
+financial_transactions
+
+--------------------------------
+MASTER DATA
+--------------------------------
+
+customers
+suppliers
+employees
+products
+categories
+branches
+departments
+warehouses
+regions
+cities
+calendar
+
+==================================================
+4. LARGE REALISTIC DUMMY DATA
+==================================================
+
+Create an automated database seeding system.
+
+The user must NOT manually enter CSV/data.
+
+Create scripts such as:
+
+scripts/seed_database.py
+
+The seed system should generate realistic interconnected data.
+
+Do NOT generate isolated random records.
+
+Example:
+
+A customer should have:
+
+leads
+enquiries
+quotations
+orders
+invoices
+payments
+returns
+
+A product should appear in:
+
+sales
+purchase
+inventory
+production
+
+An employee should appear in:
+
+HR
+tasks
+sales assignment
+production responsibility where appropriate
+
+Orders should flow through:
+
+Lead
+-> Enquiry
+-> Quotation
+-> Order
+-> Production
+-> Dispatch
+-> Delivery
+-> Invoice
+-> Payment
+
+Purchase should flow through:
+
+Purchase Requisition
+-> PO
+-> Material Receipt
+-> Supplier Invoice
+-> Payment
+
+Use realistic dates across at least 2-3 years.
+
+Include current month and previous months.
+
+Include enough data to make dashboards meaningful.
+
+Make data volume configurable.
+
+Example:
+
+SEED_SIZE=small
+SEED_SIZE=medium
+SEED_SIZE=large
+
+For development, default to a reasonable volume that can be seeded quickly.
+
+Do not block development by trying to insert millions of records initially.
+
+==================================================
+5. SEMANTIC / METADATA LAYER
+==================================================
+
+This is one of the most important components.
+
+The AI should NOT receive the entire database schema in every prompt.
+
+Create a metadata/semantic layer.
+
+It should contain:
+
+- tables
+- columns
+- data types
+- primary keys
+- foreign keys
+- relationships
+- descriptions
+- business meanings
+- synonyms
+- measures
+- calculated metrics
+- allowed joins
+- date fields
+- dimensions
+- facts
+
+Example:
+
+Revenue
+
+Possible source:
+
+sales_invoices.total_amount
+
+Business definition:
+
+SUM(total_amount) for valid sales invoices
+
+Synonyms:
+
+revenue
+sales revenue
+sales value
+turnover
+
+Another example:
+
+Purchase Value
+
+purchase_orders.total_amount
+
+Another:
+
+Delivery Delay
+
+actual_delivery_date - expected_delivery_date
+
+The AI should use this semantic layer when planning queries.
+
+==================================================
+6. AI ARCHITECTURE
+==================================================
+
+Build an AI orchestration architecture.
+
+Do NOT create unnecessary independent microservices.
+
+Keep agents modular inside the backend.
+
+Recommended logical agents:
+
+1. Orchestrator Agent
+2. Schema & Semantic Agent
+3. Query Planner Agent
+4. SQL Generation Agent
+5. Query Validation/Data Quality Agent
+6. Analytics Agent
+7. Visualization Agent
+8. Dashboard Editor Agent
+9. Explanation/Conversation Agent
+10. Export Agent
+
+These are logical modules.
+
+They do not need to be separate deployed services.
+
+==================================================
+7. OPENAI
+==================================================
+
+Use the OpenAI API.
+
+Use the latest appropriate OpenAI API architecture available in the SDK.
+
+Primary model:
+
+GPT-5.6 Sol
+
+Use it for:
+
+- complex natural language understanding
+- query planning
+- multi-step reasoning
+- SQL planning
+- analytical reasoning
+- dashboard modification instructions
+- complex comparisons
+
+Make model configuration environment-based:
+
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-5.6-sol
+
+Do NOT hard-code the API key.
+
+Create a centralized AI service.
+
+Example conceptual structure:
+
+backend/
+  ai/
+    openai_client
+    orchestrator
+    schema_agent
+    query_planner
+    sql_agent
+    validation_agent
+    analytics_agent
+    visualization_agent
+    dashboard_agent
+    explanation_agent
+    export_agent
+
+Use structured outputs wherever possible.
+
+The AI should return strict JSON structures for:
+
+- query plans
+- SQL plans
+- chart specifications
+- dashboard operations
+- explanations
+- export instructions
+
+Do NOT rely on free-form LLM output when structured output can be used.
+
+==================================================
+8. MULTI-QUERY SYSTEM
+==================================================
+
+This is mandatory.
+
+The system MUST support multiple queries for one user request.
+
+Example user request:
+
+"Compare September sales revenue with purchase value, show growth compared to August, list top 5 customers and show delayed orders."
+
+The system should create a query plan:
+
+Query 1:
+September revenue
+
+Query 2:
+September purchase value
+
+Query 3:
+August revenue
+
+Query 4:
+August purchase value
+
+Query 5:
+Top 5 customers
+
+Query 6:
+Delayed orders
+
+Then combine the results.
+
+Some queries may depend on earlier queries.
+
+Therefore implement a Query Plan / DAG concept.
+
+Example:
+
+User Request
+    |
+    v
+Intent
+    |
+    v
+Query Planner
+    |
+    +---- Query A
+    |
+    +---- Query B
+    |
+    +---- Query C
+    |
+    +---- Query D
+             |
+             v
+       Analytics Layer
+             |
+             v
+       Visualization
+
+Support:
+
+- parallel queries
+- dependent queries
+- result references
+- aggregation
+- comparisons
+- calculations
+- joins
+- time-period comparisons
+
+==================================================
+9. SQL SAFETY
+==================================================
+
+This is critical.
+
+The AI must NEVER receive unrestricted database write access.
+
+Create a READ-ONLY database user/connection for AI-generated analytical queries.
+
+Only SELECT statements should be allowed.
+
+Block:
+
+INSERT
+UPDATE
+DELETE
+DROP
+ALTER
+TRUNCATE
+CREATE
+GRANT
+REVOKE
+
+Implement SQL validation before execution.
+
+Use:
+
+- SQL parser/AST validation
+- statement allowlist
+- query timeout
+- row limits
+- result size limits
+- protected tables if necessary
+- audit logs
+
+Every AI-generated query should go through:
+
+Generate
+-> Parse
+-> Validate
+-> Safety Check
+-> Execute
+-> Validate Result
+
+==================================================
+10. NATURAL LANGUAGE CHAT
+==================================================
+
+Create a chatbot interface.
+
+Examples:
+
+"Show total revenue this month."
+
+"Compare sales and purchase for September."
+
+"Which customers generated the most revenue?"
+
+"Show delayed deliveries."
+
+"Which suppliers have the worst delivery performance?"
+
+"Show employee attendance by department."
+
+"Compare this month with last month."
+
+"Show sales trend for the last 12 months."
+
+"Create a dashboard for sales performance."
+
+"Move the revenue card to the top right."
+
+"Change this chart to a line chart."
+
+"Make this chart colorful."
+
+"Add a scorecard for total revenue."
+
+"Create a measure for year-to-date revenue."
+
+"Put this chart in the bottom-right."
+
+The system should understand conversational context.
+
+Example:
+
+User:
+"Show sales by product."
+
+AI:
+creates chart.
+
+User:
+"Only show top 10."
+
+AI:
+modifies existing chart.
+
+User:
+"Make it a horizontal bar chart."
+
+AI:
+modifies existing chart.
+
+User:
+"Put it below the revenue card."
+
+AI:
+moves chart.
+
+The system must maintain dashboard context.
+
+==================================================
+11. REPORT GENERATION
+==================================================
+
+The AI should automatically choose the appropriate visualization.
+
+Supported components:
+
+- KPI / Scorecard
+- Bar Chart
+- Horizontal Bar Chart
+- Line Chart
+- Area Chart
+- Pie Chart
+- Donut Chart
+- Scatter Plot
+- Table
+- Pivot Table
+- Funnel
+- Gauge
+- Comparison Card
+- Trend Card
+- Heatmap
+- Ranking Table
+
+
+
+Charts must be rendered deterministically from real query results.
+
+Use a professional charting library.
+
+Recommended:
+
+Apache ECharts
+
+or another robust React-compatible charting library.
+
+==================================================
+12. REPORT AS IMAGE
+==================================================
+
+Every generated report/chart should have an option:
+
+Download as PNG
+
+The PNG should be generated from the actual rendered visualization.
+
+Numbers must remain accurate.
+
+Do not ask an image-generation AI to redraw the numbers.
+
+==================================================
+13. DATA PREVIEW
+==================================================
+
+When the user asks:
+
+"Give me the data."
+
+Do NOT immediately download a file.
+
+First show a preview.
+
+Example:
+
+DATA PREVIEW
+
+Columns:
+Customer
+Revenue
+Orders
+Growth
+
+Rows:
+...
+
+Show:
+
+- row count
+- column count
+- first N rows
+- data types where useful
+- filters
+- sorting
+
+Then provide:
+
+Export CSV
+Export Excel
+
+==================================================
+14. EXPORT
+==================================================
+
+Implement:
+
+CSV export
+
+Excel XLSX export
+
+PNG export
+
+Potential future:
+
+PDF export
+
+Excel export should contain actual query results, not screenshot data.
+
+PNG export should contain the rendered report.
+
+==================================================
+15. DASHBOARD BUILDER
+==================================================
+
+Create a visual dashboard canvas.
+
+The dashboard should support:
+
+- drag
+- resize
+- delete
+- duplicate
+- edit
+- move
+- alignment
+- spacing
+- grid layout
+- responsive layout
+- filters
+- date filters
+- global filters
+- component filters
+
+Every dashboard component should have a JSON representation.
+
+Example:
+
+{
+  "id": "component_123",
+  "type": "bar_chart",
+  "title": "Revenue by Product",
+  "queryId": "query_456",
+  "position": {
+    "x": 8,
+    "y": 4,
+    "w": 6,
+    "h": 4
+  },
+  "style": {
+    "theme": "default"
+  }
+}
+
+The dashboard state should be persisted.
+
+==================================================
+16. AI DASHBOARD OPERATIONS
+==================================================
+
+The AI should convert natural-language dashboard instructions into structured operations.
+
+Example:
+
+"Move revenue chart to bottom-right."
+
+Return:
+
+MOVE_COMPONENT
+
+Example:
+
+"Make the chart colorful."
+
+Return:
+
+UPDATE_STYLE
+
+Example:
+
+"Change this to a line chart."
+
+Return:
+
+CHANGE_VISUALIZATION
+
+Example:
+
+"Add a scorecard showing total revenue."
+
+Return:
+
+CREATE_COMPONENT
+
+Example:
+
+"Remove the purchase chart."
+
+Return:
+
+DELETE_COMPONENT
+
+Never directly manipulate arbitrary frontend state using uncontrolled text.
+
+Use structured dashboard operations.
+
+==================================================
+17. MANUAL EDITOR
+==================================================
+
+The user must NOT be forced to use AI.
+
+Every component should have manual editing.
+
+Manual editor should support:
+
+- chart type
+- title
+- subtitle
+- data source
+- dimensions
+- measures
+- filters
+- sorting
+- colors
+- background
+- borders
+- radius
+- font size
+- legend
+- labels
+- axis
+- position
+- width
+- height
+- spacing
+- formatting
+- number formatting
+- currency
+- percentage
+- decimals
+
+The manual editor and AI editor must modify the same dashboard state.
+
+==================================================
+18. DASHBOARD FILTERS
+==================================================
+
+Support global filters:
+
+- Date
+- Region
+- Branch
+- Department
+- Product
+- Customer
+- Supplier
+- Status
+
+A filter should update relevant dashboard components.
+
+Example:
+
+Date:
+01 Sep 2026 - 30 Sep 2026
+
+Region:
+All Regions
+
+Branch:
+All Branches
+
+==================================================
+19. UI/UX
+==================================================
+
+The UI should look like a premium modern BI platform.
+
+Use the provided screenshots as visual inspiration.
+
+The design should include:
+
+LEFT SIDEBAR
+
+- Dashboard
+- Sales
+- Purchase
+- Inventory
+- HR
+- Production
+- Order to Delivery
+- Tasks
+- Finance
+- Reports
+- Data
+- Settings
+
+MAIN AREA
+
+Top bar:
+
+- Dashboard title
+- Date range
+- Filters
+- User
+
+Dashboard canvas:
+
+- KPI cards
+- charts
+- tables
+- reports
+
+RIGHT/BOTTOM:
+
+AI Chat / AI Copilot panel
+
+The AI chat should feel like an integral part of the dashboard.
+
+==================================================
+20. AI CHAT EXPERIENCE
+==================================================
+
+The user should be able to ask a question without knowing:
+
+- SQL
+- database schema
+- joins
+- DAX
+- Power BI configuration
+- chart configuration
+
+Example:
+
+"Show me why revenue dropped this month."
+
+The system should:
+
+1. understand the request
+2. identify relevant metrics
+3. generate query plan
+4. execute multiple queries if required
+5. compare periods
+6. identify contributing dimensions
+7. create visual report
+8. explain the result
+9. show the data behind the result
+
+If the user asks:
+
+"Show me the report"
+
+Generate visual report.
+
+If user asks:
+
+"Why?"
+
+Perform deeper analysis.
+
+If user asks:
+
+"Give me the data"
+
+Show data preview.
+
+If user asks:
+
+"Download it"
+
+Offer export.
+
+==================================================
+21. TRACEABILITY
+==================================================
+
+Every generated report should allow the user to inspect:
+
+- What question was asked
+- Which tables were used
+- Which queries were executed
+- Query execution status
+- Number of rows returned
+- Timestamp
+- Visualization generated from which query
+
+Add a "View Data / View Query" option.
+
+Do not expose unnecessary internal reasoning.
+
+Show concise technical transparency instead.
+
+==================================================
+22. DASHBOARD MEMORY
+==================================================
+
+The AI should remember the current dashboard state during the conversation.
+
+Example:
+
+User:
+Create revenue chart.
+
+User:
+Make it blue.
+
+User:
+Move it to bottom right.
+
+User:
+Add purchase comparison beside it.
+
+Each instruction should operate on the current dashboard.
+
+Persist dashboard state in database.
+
+==================================================
+23. DATABASE METADATA CACHE
+==================================================
+
+Do not query information_schema on every user message.
+
+Create a metadata cache/table.
+
+Example:
+
+schema_metadata
+table_metadata
+column_metadata
+relationship_metadata
+measure_metadata
+semantic_term_metadata
+
+Provide a mechanism to refresh metadata when schema changes.
+
+==================================================
+24. QUERY PERFORMANCE
+==================================================
+
+Implement:
+
+- indexes
+- query timeout
+- pagination
+- result limits
+- caching
+- query fingerprints
+- optional query result cache
+
+Do not load massive datasets into the frontend.
+
+Charts should receive aggregated data.
+
+Example:
+
+DO NOT send 2 million rows to browser.
+
+Instead:
+
+SELECT month, SUM(revenue)
+GROUP BY month
+
+Then render 12 rows.
+
+==================================================
+25. ERROR HANDLING
+==================================================
+
+If SQL fails:
+
+Do not show raw technical error only.
+
+AI should interpret the failure and attempt a correction.
+
+Example:
+
+Attempt 1:
+SQL fails
+
+Attempt 2:
+Corrected SQL
+
+Attempt 3:
+If still fails, explain clearly.
+
+Do not loop indefinitely.
+
+Maximum retry count should be configurable.
+
+==================================================
+26. OBSERVABILITY
+==================================================
+
+Create logging for:
+
+- user request
+- AI request
+- model
+- query plan
+- generated SQL
+- validation result
+- execution time
+- rows returned
+- visualization
+- export
+- errors
+
+Create an internal AI execution log.
+
+==================================================
+27. BACKEND
+==================================================
+
+Recommended:
+
+Python
+FastAPI
+SQLAlchemy
+Pydantic
+PostgreSQL / Neon
+OpenAI SDK
+
+Use clean modular architecture.
+
+Suggested:
+
+backend/
+  app/
+    main.py
+    api/
+    core/
+    db/
+    models/
+    schemas/
+    services/
+    ai/
+    agents/
+    query_engine/
+    semantic_layer/
+    dashboard/
+    exports/
+    security/
+    logging/
+
+==================================================
+28. FRONTEND
+==================================================
+
+Recommended:
+
+Next.js
+React
+TypeScript
+Tailwind CSS
+shadcn/ui
+
+Use a professional BI-style UI.
+
+Charting:
+
+Apache ECharts
+
+Dashboard layout:
+
+Use a robust grid/layout library or implement a clean grid system.
+
+The UI must be responsive.
+
+==================================================
+29. API DESIGN
+==================================================
+
+Create APIs similar to:
+
+POST /api/chat
+
+POST /api/analysis/run
+
+POST /api/query/plan
+
+POST /api/query/execute
+
+GET /api/schema
+
+GET /api/metadata
+
+POST /api/dashboard
+
+GET /api/dashboard/:id
+
+PUT /api/dashboard/:id
+
+POST /api/dashboard/:id/operations
+
+POST /api/dashboard/:id/components
+
+PUT /api/dashboard/:id/components/:componentId
+
+DELETE /api/dashboard/:id/components/:componentId
+
+POST /api/export/csv
+
+POST /api/export/excel
+
+POST /api/export/png
+
+GET /api/reports/:id
+
+==================================================
+30. CHAT RESPONSE FORMAT
+==================================================
+
+The backend should return structured response objects.
+
+Example:
+
+{
+  "message": "Here is the September revenue comparison.",
+  "intent": "ANALYSIS",
+  "queries": [...],
+  "data": [...],
+  "visualizations": [...],
+  "dashboard_operations": [...],
+  "exports": {
+    "csv": true,
+    "excel": true,
+    "png": true
+  }
+}
+
+Frontend should render components based on this structured response.
+
+==================================================
+31. NO FAKE AI
+==================================================
+
+Do not build a fake chatbot where responses are hardcoded.
+
+The AI must actually:
+
+- inspect metadata
+- plan queries
+- generate SQL
+- execute SQL
+- use returned data
+- generate visualization specs
+- modify dashboard state
+
+Do not hardcode responses such as:
+
+"Revenue increased 20%"
+
+unless that number actually comes from database query results.
+
+==================================================
+32. NO MANUAL CSV WORKFLOW
+==================================================
+
+Do NOT make CSV upload the main data workflow.
+
+CSV may be a future optional feature.
+
+For this MVP:
+
+Neon database
+is the primary data source.
+
+==================================================
+33. SAMPLE DASHBOARDS
+==================================================
+
+Create initial demo dashboards automatically.
+
+At minimum:
+
+1. Sales Intelligence Dashboard
+
+2. Purchase Intelligence Dashboard
+
+3. HR Intelligence Dashboard
+
+4. Inventory Intelligence Dashboard
+
+5. Production Intelligence Dashboard
+
+6. Order-to-Delivery Dashboard
+
+7. Task Intelligence Dashboard
+
+8. Executive Overview
+
+Use the supplied dashboard screenshots as visual inspiration.
+
+==================================================
+34. SALES DASHBOARD EXAMPLE
+==================================================
+
+Include components such as:
+
+Total Leads
+Total Enquiries
+Quotations
+Orders
+Dispatched Orders
+Revenue
+
+Sales Trend
+
+Sales by Product Group
+
+Order Status
+
+Recent Leads
+
+Recent Orders
+
+Salesperson Performance
+
+Revenue by Customer
+
+Revenue by Product
+
+==================================================
+35. PURCHASE DASHBOARD EXAMPLE
+==================================================
+
+Include:
+
+Total Indents
+Purchase Orders
+Material Received
+GRN
+Payments
+Pending POs
+
+Purchase Trend
+
+Purchase by Material Category
+
+Supplier Performance
+
+Material Stock Risk
+
+Recent Purchase Orders
+
+Recent GRNs
+
+==================================================
+36. AI DEMO QUESTIONS
+==================================================
+
+Seed data must support questions such as:
+
+"Show total revenue."
+
+"Show revenue by month."
+
+"Compare sales and purchase."
+
+"Top 10 customers by revenue."
+
+"Top 10 products by sales."
+
+"Which suppliers have the highest purchase value?"
+
+"Which suppliers have delivery delays?"
+
+"Show pending orders."
+
+"Show delayed deliveries."
+
+"Show sales conversion rate."
+
+"Compare this month with last month."
+
+"Compare this year with last year."
+
+"Show revenue by region."
+
+"Show sales by salesperson."
+
+"Show department-wise employee count."
+
+"Show attendance by department."
+
+"Show inventory below reorder level."
+
+"Show production rejection rate."
+
+"Show machine downtime."
+
+"Show order-to-delivery cycle time."
+
+"Create an executive dashboard."
+
+==================================================
+37. DAX-LIKE MEASURES
+==================================================
+
+The system should support business measures conceptually similar to BI tools.
+
+Examples:
+
+Total Revenue
+Total Orders
+Average Order Value
+Conversion Rate
+Gross Margin
+Purchase Value
+Delivery Delay %
+Inventory Turnover
+Production Rejection %
+Employee Attendance %
+
+Do not require actual DAX syntax initially.
+
+Use a semantic measure system.
+
+Example:
+
+{
+  "name": "Total Revenue",
+  "expression": "SUM(sales_invoices.total_amount)",
+  "format": "currency"
+}
+
+Future support for actual DAX-like expressions can be added.
+
+==================================================
+38. IMPORTANT ARCHITECTURAL RULE
+==================================================
+
+Separate:
+
+1. AI reasoning/planning
+2. Database execution
+3. Analytics
+4. Visualization
+5. Dashboard state
+6. Export
+
+Do not mix everything into one giant prompt or one giant function.
+
+==================================================
+39. SECURITY
+==================================================
+
+Implement:
+
+- environment variables
+- database credentials outside source code
+- OpenAI key outside source code
+- read-only AI database connection
+- SQL validation
+- request validation
+- rate limiting where appropriate
+- audit logging
+
+Never commit secrets.
+
+Create:
+
+.env.example
+
+==================================================
+40. DEVELOPMENT EXPERIENCE
+==================================================
+
+The project must run locally with clear commands.
+
+Provide:
+
+README.md
+
+SETUP.md
+
+ARCHITECTURE.md
+
+DATABASE.md
+
+AI_ARCHITECTURE.md
+
+API.md
+
+CLAUDE.md
+
+.env.example
+
+Docker configuration if useful.
+
+Provide scripts:
+
+install
+dev
+seed
+reset-db
+test
+lint
+
+==================================================
+41. CLAUDE.md
+==================================================
+
+Create and continuously maintain CLAUDE.md.
+
+It must contain:
+
+- project architecture
+- important decisions
+- database architecture
+- AI architecture
+- coding rules
+- current implementation status
+- known issues
+- commands
+- environment variables
+- future tasks
+
+Whenever an architectural decision changes, update CLAUDE.md.
+
+==================================================
+42. TESTING
+==================================================
+
+Create automated tests for:
+
+Database relationships
+
+Metadata discovery
+
+SQL validation
+
+SQL generation
+
+Multi-query planning
+
+Query execution
+
+Dashboard operations
+
+Visualization specifications
+
+Exports
+
+AI response parsing
+
+Important:
+
+Test that malicious SQL such as:
+
+DROP TABLE
+DELETE
+UPDATE
+INSERT
+
+is rejected.
+
+==================================================
+43. IMPLEMENTATION STRATEGY
+==================================================
+
+Do NOT attempt to build everything blindly in one step.
+
+Work in phases.
+
+PHASE 1
+
+Project setup
+
+Frontend
+
+Backend
+
+Neon connection
+
+Environment configuration
+
+Basic UI shell
+
+PHASE 2
+
+Complete structured database schema
+
+Seed realistic dummy data
+
+Verify relationships
+
+PHASE 3
+
+Metadata / semantic layer
+
+Schema discovery
+
+Metadata APIs
+
+PHASE 4
+
+OpenAI integration
+
+Orchestrator
+
+Query Planner
+
+SQL generation
+
+SQL validation
+
+Query execution
+
+PHASE 5
+
+Multi-query engine
+
+Parallel queries
+
+Dependent queries
+
+Analytics layer
+
+PHASE 6
+
+Visualization engine
+
+Charts
+
+Tables
+
+KPIs
+
+Reports
+
+PHASE 7
+
+Dashboard builder
+
+Grid
+
+Drag
+
+Resize
+
+Manual editing
+
+Dashboard persistence
+
+PHASE 8
+
+AI dashboard operations
+
+Create
+
+Modify
+
+Move
+
+Resize
+
+Delete
+
+Style
+
+Filter
+
+PHASE 9
+
+Exports
+
+CSV
+
+Excel
+
+PNG
+
+Data preview
+
+PHASE 10
+
+Demo dashboards
+
+Sales
+
+Purchase
+
+HR
+
+Inventory
+
+Production
+
+Order-to-Delivery
+
+Executive
+
+PHASE 11
+
+Testing
+
+Security
+
+Performance
+
+Polish
+
+==================================================
+44. FIRST TASK
+==================================================
+
+Before writing large amounts of code:
+
+1. Inspect the project directory.
+2. Create an architecture plan.
+3. Create the folder structure.
+4. Create CLAUDE.md.
+5. Create README.md.
+6. Create .env.example.
+7. Decide exact libraries.
+8. Explain the implementation plan briefly.
+9. Then begin implementation phase-by-phase.
+
+Do NOT ask unnecessary questions.
+
+If a reasonable technical decision is required, make the decision and document it in CLAUDE.md.
+
+Only ask me when a decision fundamentally changes the product or requires a credential/value that cannot be safely assumed.
+
+==================================================
+45. DEFINITION OF DONE
+==================================================
+
+The MVP is considered successful when I can:
+
+1. Open the application.
+
+2. See a professional BI dashboard.
+
+3. Database is already populated with realistic dummy business data.
+
+4. I do NOT need to upload CSV.
+
+5. I can open AI chat.
+
+6. Ask:
+
+"Show me September sales revenue vs purchase value."
+
+7. System identifies required tables.
+
+8. System creates multiple queries if required.
+
+9. Queries execute against Neon.
+
+10. System generates a professional visual report.
+
+11. Report contains actual database numbers.
+
+12. I can ask:
+
+"Make it a bar chart."
+
+13. Chart changes.
+
+14. I can ask:
+
+"Move it to bottom right."
+
+15. Component moves.
+
+16. I can manually drag/resize/edit it.
+
+17. I can ask:
+
+"Show top 10 customers."
+
+18. New visualization is generated.
+
+19. I can click:
+
+View Data
+
+20. Data preview appears.
+
+21. I can export:
+
+CSV
+Excel
+PNG
+
+22. I can switch between Sales, Purchase, HR, Inventory and other systems.
+
+23. AI can answer cross-system questions.
+
+Example:
+
+"Compare sales revenue with purchase value and inventory availability."
+
+24. The system never fabricates numbers.
+
+25. Unsafe SQL is rejected.
+
+26. CLAUDE.md remains updated.
+
+==================================================
+FINAL INSTRUCTION
+==================================================
+
+Build this as a real AI-native BI platform, not a static dashboard demo.
+
+The defining feature is:
+
+"USER TALKS TO THE DASHBOARD AND THE DASHBOARD EXECUTES."
+
+Prioritize correctness of data, safe SQL, structured multi-query execution, semantic understanding, deterministic visualization, dashboard state management, and excellent UX.
+
+Do not replace real functionality with mock responses.
+
+Use realistic dummy data only as the database seed.
+
+Keep architecture modular so additional business systems can be added later without rewriting the AI engine.
