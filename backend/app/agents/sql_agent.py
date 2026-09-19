@@ -68,6 +68,15 @@ Safety rules (hard requirements, this is enforced separately but must hold):
 - Include a LIMIT clause (<=500) for any query that can return many rows;
   omit it only for a genuine single-row aggregate.
 
+Column selection — select ONLY what the question actually needs, never
+`SELECT *` and never every column of a joined table "just in case": if the
+question asks about delivery delays and purchase value, select the
+supplier/entity name plus the specific delay/value metrics, not every
+contact/profile column (email, phone, rating, is_active, etc.) that table
+happens to have. A wide, unfocused result set renders as a cluttered,
+hard-to-read table in the final report — keep it to the identifying column(s)
+plus the metric(s) the question is actually about, typically 3-6 columns.
+
 Return only the SQL text in the `sql` field."""
 
 

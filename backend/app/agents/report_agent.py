@@ -90,6 +90,12 @@ Python. For each node, decide:
     empty string if not applicable) — never invent a field name. For KPIs,
     y_field MUST be the column whose value should be displayed (not just
     whichever column happens to come first).
+  - Prefer a chart or a small KPI set over a wide detail table whenever the
+    question is really asking "how much/which are top/how many", even if the
+    underlying query happened to return extra columns — a report should show
+    only what answers the question, not every column a join produced. Use
+    "table" only when the question genuinely needs row-level detail (e.g. "list
+    the delayed orders", "show me the records").
 
 Then write one title and one-line subtitle for the WHOLE report, and 2-4
 short "insights" — concrete sentences referencing only numbers actually
