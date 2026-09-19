@@ -118,8 +118,12 @@ _FULL_REPORT_PROMPT_WRITER_SYSTEM = (
     "reproduce every number exactly as given here, with no more and no fewer "
     "digits, and to prefer larger/clearer text over guessing digits it is "
     "unsure of — this matters even more here since a single image now carries "
-    "many more numbers than a single chart/KPI/table would). Do not add "
-    "commentary, explanation, or markdown — output ONLY the final "
+    "many more numbers than a single chart/KPI/table would). KPI cards need "
+    "special emphasis: image models sometimes render an empty/blank stat card "
+    "when a report has several KPIs — your rewritten prompt MUST state the "
+    "exact number of KPI cards required and repeat each card's exact label "
+    "and number text, with an explicit instruction that no card may be left "
+    "blank. Do not add commentary, explanation, or markdown — output ONLY the final "
     "image-generation prompt text."
 )
 
@@ -165,7 +169,7 @@ def _truncation_note(total: int, shown: int, unit: str = "rows") -> str:
     )
 
 
-def _describe_kpi(kpi: KPISpec) -> str:
+def _describe_kpi(index: int, kpi: KPISpec) -> str:
     value_text = _format_value(kpi.value) if not isinstance(kpi.value, str) else kpi.value
     if kpi.format == "currency" and not isinstance(kpi.value, str):
         value_text = f"${value_text}"
@@ -175,11 +179,15 @@ def _describe_kpi(kpi: KPISpec) -> str:
     delta_text = ""
     if kpi.delta is not None:
         direction = "up" if (kpi.trend == "up") else ("down" if kpi.trend == "down" else "flat")
-        delta_text = f", trend {direction} {abs(kpi.delta):.1f}%"
+        delta_text = f", small trend indicator: {direction} {abs(kpi.delta):.1f}%"
         if kpi.delta_label:
             delta_text += f" ({kpi.delta_label})"
 
-    return f"- KPI '{kpi.label}': {value_text}{delta_text}"
+    return (
+        f"  Card {index}: small label text reading exactly '{kpi.label}', "
+        f"below it large bold number text reading exactly '{value_text}'"
+        f"{delta_text}. This card MUST NOT be left blank/empty."
+    )
 
 
 def _describe_chart(chart: ChartSpec) -> str:
@@ -215,7 +223,11 @@ def _describe_chart(chart: ChartSpec) -> str:
     header = f"- Chart '{chart.title}' ({chart_type_label})"
     if chart.subtitle:
         header += f" — {chart.subtitle}"
-    header += f", real data points{note}:"
+    header += (
+        f", real data points{note} — each value below has exactly the digits "
+        "shown, use a small enough font that every digit is legible rather "
+        "than shortening or lengthening any number:"
+    )
     return header + "\n" + data_text
 
 
@@ -254,8 +266,12 @@ def _build_full_report_prompt(report: ReportSpec) -> str:
         parts.append(f"Report subtitle: '{report.subtitle}'")
 
     if report.kpis:
-        parts.append("\nKPI cards (render as a top row of stat cards):")
-        parts.extend(_describe_kpi(k) for k in report.kpis)
+        parts.append(
+            f"\nKPI cards: render EXACTLY {len(report.kpis)} stat cards in a top "
+            "row, no more and no fewer. Every single card below MUST contain its "
+            "label and number — a card with no visible text is a failure:"
+        )
+        parts.extend(_describe_kpi(i, k) for i, k in enumerate(report.kpis, start=1))
 
     if report.charts:
         parts.append("\nCharts:")
@@ -292,7 +308,10 @@ def _build_full_report_prompt(report: ReportSpec) -> str:
         "than guessing extra digits. If any table/chart notes that it is "
         "showing a partial subset of a larger total, render that note clearly "
         "in the image (e.g. 'top 15 of 367 rows') rather than pretending the "
-        "subset is the complete data."
+        "subset is the complete data. CRITICAL for KPI cards specifically: "
+        "every KPI card listed above must show its label and number as actual "
+        "visible text inside the card — an empty or blank stat card is a "
+        "failure of the image, never leave a card's interior blank."
     )
 
 
