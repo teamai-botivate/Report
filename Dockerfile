@@ -9,6 +9,9 @@ COPY frontend/package.json frontend/package-lock.json* ./
 RUN npm install
 COPY frontend/ ./
 ENV NEXT_TELEMETRY_DISABLED=1
+# Empty string = same-origin API calls (frontend/lib/api.ts) — required so the
+# production build doesn't fall back to its localhost:8000 dev default.
+ENV NEXT_PUBLIC_API_URL=""
 RUN npm run build
 
 # ---- Final image ----
