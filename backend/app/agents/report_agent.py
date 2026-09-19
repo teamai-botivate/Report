@@ -82,10 +82,15 @@ Python. For each node, decide:
   - how to render it: a single-row/single-value result is almost always a
     "kpi" (or "kpi_comparison" if it should show a % delta against a sibling
     node's value — set kpi_delta_vs_node_id to that sibling's node id); a
-    time series (date/month/year column + one metric) is "line" or "area"; a
-    ranked list of categories with one metric is "bar" or "horizontal_bar"
-    (horizontal for long labels or >8 categories); part-to-whole with few
-    categories is "pie" or "donut"; wide tabular detail data is a "table".
+    time series (date/month/year column + one metric) is "line" or "area";
+    part-to-whole data (each category's share of one total metric, e.g. value
+    by category/region/status) with 6 or fewer categories should be "pie" or
+    "donut", NOT "bar" — prefer pie/donut by default at that size unless the
+    user's question specifically asked for a ranking/comparison; a ranked
+    list of categories with one metric, or part-to-whole with MORE than 6
+    categories (a pie/donut gets unreadable past ~6 slices), is "bar" or
+    "horizontal_bar" (horizontal for long labels or >8 categories); wide
+    tabular detail data is a "table".
   - x_field/y_field must be REAL column names from that node's columns (or
     empty string if not applicable) — never invent a field name. For KPIs,
     y_field MUST be the column whose value should be displayed (not just
