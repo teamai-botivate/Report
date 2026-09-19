@@ -80,8 +80,14 @@ _PROMPT_WRITER_SYSTEM = (
     "specify layout, color palette, typography feel, spacing, and visual "
     "hierarchy precisely, the way a senior product designer would brief an "
     "illustrator. Keep every real number/label from the input exactly as "
-    "given. Do not add commentary, explanation, or markdown — output ONLY "
-    "the final image-generation prompt text."
+    "given, copied character for character — never round differently, "
+    "truncate, or extend any number with extra digits/decimal places (image "
+    "models frequently hallucinate extra trailing digits on numeric labels; "
+    "your rewritten prompt MUST explicitly and repeatedly instruct the image "
+    "model to reproduce every number exactly as given here, with no more and "
+    "no fewer digits, and to prefer larger/clearer text over guessing digits "
+    "it is unsure of). Do not add commentary, explanation, or markdown — "
+    "output ONLY the final image-generation prompt text."
 )
 
 # Keep prompts readable and within reasonable size/cost — if a chart/table has
@@ -225,9 +231,14 @@ def _build_chart_prompt(chart: ChartSpec) -> str:
         + f" Render these exact real data points as labeled values on the chart{note}:\n"
         + data_text
         + "\n\nStyle: clean corporate BI dashboard chart, blue color palette, white "
-        "background, clear axis labels, exact numeric value labels shown on each "
-        "data point/bar/segment, legible sans-serif font, no watermarks, no extra "
-        "decorative elements beyond the chart itself."
+        "background, clear axis labels, legible sans-serif font, no watermarks, no "
+        "extra decorative elements beyond the chart itself. CRITICAL for value "
+        "labels: copy each number EXACTLY as written above, character for character "
+        "— do not extend, truncate, round differently, or add extra digits. Every "
+        "value above already has at most 2 decimal places; never draw a longer or "
+        "different-looking number. If you cannot render a number with complete "
+        "confidence and precision, render it in a larger, clearer font rather than "
+        "guessing extra digits."
     )
 
 
@@ -252,7 +263,9 @@ def _build_kpi_prompt(kpi: KPISpec) -> str:
         f"value as large bold text: '{value_text}'."
         + delta_text
         + " Style: clean corporate BI dashboard stat card, white background, blue "
-        "accent color, minimal, legible sans-serif font, no watermarks."
+        "accent color, minimal, legible sans-serif font, no watermarks. CRITICAL: "
+        f"copy '{value_text}' EXACTLY, character for character — do not add, drop, "
+        "or change any digit, and never extend it with extra decimal places."
     )
 
 
@@ -276,7 +289,10 @@ def _build_table_prompt(table: TableSpec) -> str:
         f"{header_text}\n{data_text}\n\n"
         "Style: clean corporate BI dashboard data table, alternating light-blue/"
         "white row shading, bold header row, right-aligned numeric columns, "
-        "legible sans-serif font, no watermarks."
+        "legible sans-serif font, no watermarks. CRITICAL: copy every number and "
+        "label above EXACTLY as written, character for character — never add, "
+        "drop, or change a digit, and never extend a number with extra decimal "
+        "places beyond what is shown."
     )
 
 
